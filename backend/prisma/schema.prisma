@@ -1,0 +1,632 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// ENUMS
+// ==========================================
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  TREASURER
+  SECRETARY
+  APOSTLE
+  LEADER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING_2FA
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum MaritalStatus {
+  SINGLE
+  MARRIED
+  DIVORCED
+  WIDOWED
+}
+
+enum AttendanceType {
+  SUNDAY_SERVICE
+  MIDWEEK_SERVICE
+  PRAYER_MEETING
+  DEPARTMENTAL
+  SPECIAL_EVENT
+  VISITOR
+}
+
+enum EventType {
+  SERVICE
+  MEETING
+  CONFERENCE
+  TRAINING
+  SOCIAL
+  OUTREACH
+  OTHER
+}
+
+enum EventStatus {
+  SCHEDULED
+  ONGOING
+  COMPLETED
+  CANCELLED
+  POSTPONED
+}
+
+enum FinancialType {
+  OFFERING
+  TITHE
+  PLEDGE
+  EXPENSE
+  DONATION
+  SPECIAL_OFFERING
+}
+
+enum PaymentMethod {
+  CASH
+  CHEQUE
+  BANK_TRANSFER
+  MOBILE_MONEY
+  CARD
+  OTHER
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+  REFUNDED
+}
+
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  ERROR
+}
+
+enum AuditAction {
+  CREATE
+  READ
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  RESTORE
+  EXPORT
+  APPROVE
+  REJECT
+}
+
+// ==========================================
+// USER & AUTHENTICATION
+// ==========================================
+
+model User {
+  id            String     @id @default(uuid())
+  email         String     @unique
+  password      String
+  firstName     String
+  lastName      String
+  phone         String?
+  role          UserRole   @default(LEADER)
+  status        UserStatus @default(ACTIVE)
+  
+  // 2FA fields
+  twoFactorEnabled  Boolean @default(false)
+  twoFactorSecret   String?
+  
+  // Profile
+  avatar        String?
+  lastLoginAt   DateTime?
+  lastLoginIp   String?
+  loginAttempts Int     @default(0)
+  lockedUntil   DateTime?
+  
+  // Relations
+  auditLogs     AuditLog[]
+  createdMembers Member[]   @relation("CreatedBy")
+  updatedMembers Member[]   @relation("UpdatedBy")
+  offerings     Offering[] @relation("OfferingRecordedBy")
+  tithes        Tithe[]    @relation("TitheRecordedBy")
+  pledges       Pledge[]   @relation("PledgeRecordedBy")
+  expenses      Expense[]  @relation("ExpenseRecordedBy")
+  attendances   Attendance[] @relation("AttendanceRecordedBy")
+  events        Event[]    @relation("EventCreatedBy")
+  notifications Notification[]
+  
+  // Audit
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  deletedAt     DateTime?
+  
+  @@map("users")
+}
+
+// ==========================================
+// MEMBERS
+// ==========================================
+
+model Member {
+  id              String        @id @default(uuid())
+  memberNumber    String        @unique
+  firstName       String
+  lastName        String
+  email           String?
+  phone           String?
+  phoneSecondary  String?
+  dateOfBirth     DateTime?
+  gender          Gender?
+  maritalStatus   MaritalStatus?
+  address         String?
+  city            String?
+  country         String        @default("Ghana")
+  occupation      String?
+  employer        String?
+  
+  // Church info
+  joinDate        DateTime?
+  baptized        Boolean       @default(false)
+  baptizedDate    DateTime?
+  departmentId    String?
+  department      Department?   @relation(fields: [departmentId], references: [id])
+  isLeader        Boolean       @default(false)
+  leaderRole      String?
+  
+  // Emergency contact
+  emergencyName   String?
+  emergencyPhone  String?
+  
+  // Relations
+  tithes          Tithe[]
+  pledges         Pledge[]
+  individualAttendances IndividualAttendance[]
+  
+  // Audit
+  createdById     String?
+  createdBy       User?         @relation("CreatedBy", fields: [createdById], references: [id])
+  updatedById     String?
+  updatedBy       User?         @relation("UpdatedBy", fields: [updatedById], references: [id])
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  deletedAt       DateTime?
+  
+  @@map("members")
+}
+
+// ==========================================
+// ATTENDANCE
+// ==========================================
+
+model Attendance {
+  id              String         @id @default(uuid())
+  date            DateTime
+  type            AttendanceType
+  serviceName     String?
+  
+  // Counts
+  menCount        Int            @default(0)
+  womenCount      Int            @default(0)
+  childrenCount   Int            @default(0)
+  youthCount      Int            @default(0)
+  visitorCount    Int            @default(0)
+  totalCount      Int            @default(0)
+  
+  // Details
+  notes           String?
+  departmentId    String?
+  department      Department?    @relation(fields: [departmentId], references: [id])
+  eventId         String?
+  event           Event?         @relation(fields: [eventId], references: [id])
+  
+  // Individual attendance records
+  individualRecords IndividualAttendance[]
+  
+  // Audit
+  recordedById    String
+  recordedBy      User           @relation("AttendanceRecordedBy", fields: [recordedById], references: [id])
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  deletedAt       DateTime?
+  
+  @@map("attendance")
+}
+
+model IndividualAttendance {
+  id            String      @id @default(uuid())
+  attendanceId  String
+  attendance    Attendance  @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  memberId      String?
+  member        Member?     @relation(fields: [memberId], references: [id])
+  visitorName   String?
+  visitorPhone  String?
+  visitorEmail  String?
+  isFirstTime   Boolean     @default(false)
+  notes         String?
+  createdAt     DateTime    @default(now())
+  
+  @@map("individual_attendance")
+}
+
+// ==========================================
+// VISITORS
+// ==========================================
+
+model Visitor {
+  id            String    @id @default(uuid())
+  firstName     String
+  lastName      String
+  email         String?
+  phone         String?
+  address       String?
+  city          String?
+  visitedDate   DateTime
+  serviceType   String?
+  invitedBy     String?
+  followUpStatus String   @default("PENDING")
+  followUpDate  DateTime?
+  notes         String?
+  convertedToMember Boolean @default(false)
+  memberId      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+  
+  @@map("visitors")
+}
+
+// ==========================================
+// FINANCE - OFFERINGS
+// ==========================================
+
+model Offering {
+  id              String          @id @default(uuid())
+  date            DateTime
+  serviceType     String?
+  amount          Decimal         @db.Decimal(15, 2)
+  currency        String          @default("GHS")
+  paymentMethod   PaymentMethod   @default(CASH)
+  
+  // Categorization
+  category        String?         // Thanksgiving, Seed, etc.
+  description     String?
+  
+  // Relations
+  recordedById    String
+  recordedBy      User            @relation("OfferingRecordedBy", fields: [recordedById], references: [id])
+  
+  // Audit
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  deletedAt       DateTime?
+  
+  @@map("offerings")
+}
+
+// ==========================================
+// FINANCE - TITHES
+// ==========================================
+
+model Tithe {
+  id              String          @id @default(uuid())
+  date            DateTime
+  amount          Decimal         @db.Decimal(15, 2)
+  currency        String          @default("GHS")
+  paymentMethod   PaymentMethod   @default(CASH)
+  month           String          // Format: YYYY-MM
+  notes           String?
+  
+  // Relations
+  memberId        String
+  member          Member          @relation(fields: [memberId], references: [id])
+  recordedById    String
+  recordedBy      User            @relation("TitheRecordedBy", fields: [recordedById], references: [id])
+  
+  // Audit
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  deletedAt       DateTime?
+  
+  @@map("tithes")
+}
+
+// ==========================================
+// FINANCE - PLEDGES
+// ==========================================
+
+model Pledge {
+  id              String          @id @default(uuid())
+  title           String
+  description     String?
+  targetAmount    Decimal         @db.Decimal(15, 2)
+  amountPaid      Decimal         @db.Decimal(15, 2) @default(0)
+  currency        String          @default("GHS")
+  startDate       DateTime
+  endDate         DateTime?
+  status          TransactionStatus @default(PENDING)
+  
+  // Relations
+  memberId        String
+  member          Member          @relation(fields: [memberId], references: [id])
+  payments        PledgePayment[]
+  recordedById    String
+  recordedBy      User            @relation("PledgeRecordedBy", fields: [recordedById], references: [id])
+  
+  // Audit
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  deletedAt       DateTime?
+  
+  @@map("pledges")
+}
+
+model PledgePayment {
+  id              String    @id @default(uuid())
+  pledgeId        String
+  pledge          Pledge    @relation(fields: [pledgeId], references: [id], onDelete: Cascade)
+  amount          Decimal   @db.Decimal(15, 2)
+  paymentDate     DateTime
+  paymentMethod   PaymentMethod
+  notes           String?
+  createdAt       DateTime  @default(now())
+  
+  @@map("pledge_payments")
+}
+
+// ==========================================
+// FINANCE - EXPENSES
+// ==========================================
+
+model Expense {
+  id              String          @id @default(uuid())
+  date            DateTime
+  category        String          // Utilities, Rent, Outreach, etc.
+  description     String
+  amount          Decimal         @db.Decimal(15, 2)
+  currency        String          @default("GHS")
+  paymentMethod   PaymentMethod   @default(CASH)
+  vendor          String?
+  receiptNumber   String?
+  receiptImage    String?         // File path
+  approvedBy      String?
+  
+  // Relations
+  recordedById    String
+  recordedBy      User            @relation("ExpenseRecordedBy", fields: [recordedById], references: [id])
+  
+  // Audit
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  deletedAt       DateTime?
+  
+  @@map("expenses")
+}
+
+// ==========================================
+// CALENDAR / EVENTS
+// ==========================================
+
+model Event {
+  id              String      @id @default(uuid())
+  title           String
+  description     String?
+  type            EventType   @default(SERVICE)
+  status          EventStatus @default(SCHEDULED)
+  
+  // Timing
+  startDate       DateTime
+  endDate         DateTime?
+  startTime       String?     // HH:MM format
+  endTime         String?
+  recurring       Boolean     @default(false)
+  recurrenceRule  String?     // iCal RRULE format
+  
+  // Location
+  location        String?
+  isVirtual       Boolean     @default(false)
+  virtualLink     String?
+  
+  // Organization
+  departmentId    String?
+  department      Department? @relation(fields: [departmentId], references: [id])
+  
+  // Relations
+  attendance      Attendance[]
+  
+  // Audit
+  createdById     String
+  createdBy       User        @relation("EventCreatedBy", fields: [createdById], references: [id])
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  deletedAt       DateTime?
+  
+  @@map("events")
+}
+
+// ==========================================
+// DEPARTMENTS & LEADERSHIP
+// ==========================================
+
+model Department {
+  id              String       @id @default(uuid())
+  name            String       @unique
+  description     String?
+  color           String       @default("#3b82f6")
+  
+  // Relations
+  members         Member[]
+  leaders         Leader[]
+  attendances     Attendance[]
+  events          Event[]
+  
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  deletedAt       DateTime?
+  
+  @@map("departments")
+}
+
+model Leader {
+  id              String      @id @default(uuid())
+  title           String      // Apostle, Pastor, Elder, Deacon, etc.
+  role            String      // Head of Department, Assistant, etc.
+  responsibilities String?
+  startDate       DateTime
+  endDate         DateTime?
+  isActive        Boolean     @default(true)
+  
+  // Relations
+  departmentId    String
+  department      Department  @relation(fields: [departmentId], references: [id])
+  
+  // Personal info (stored separately or linked)
+  name            String
+  email           String?
+  phone           String?
+  bio             String?
+  avatar          String?
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  deletedAt       DateTime?
+  
+  @@map("leaders")
+}
+
+// ==========================================
+// BRANCHES (Future-ready multi-branch support)
+// ==========================================
+
+model Branch {
+  id              String    @id @default(uuid())
+  name            String
+  code            String    @unique
+  address         String?
+  city            String?
+  country         String    @default("Ghana")
+  phone           String?
+  email           String?
+  pastorName      String?
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+  
+  @@map("branches")
+}
+
+// ==========================================
+// AUDIT LOGS
+// ==========================================
+
+model AuditLog {
+  id              String      @id @default(uuid())
+  action          AuditAction
+  entityType      String      // Table name: members, offerings, etc.
+  entityId        String      // Record UUID
+  
+  // Data snapshots
+  oldValues       Json?
+  newValues       Json?
+  changes         Json?       // Only changed fields
+  
+  // Context
+  userId          String?
+  user            User?       @relation(fields: [userId], references: [id])
+  userRole        UserRole?
+  ipAddress       String?
+  userAgent       String?
+  
+  // For deleted records tracking
+  deletedRecordId String?
+  
+  createdAt       DateTime    @default(now())
+  
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ==========================================
+// DELETED RECORDS VAULT
+// ==========================================
+
+model DeletedRecord {
+  id              String    @id @default(uuid())
+  entityType      String    // Table name
+  entityId        String    // Original record UUID
+  data            Json      // Full record snapshot
+  deletedById     String?
+  deletedByRole   UserRole?
+  reason          String?
+  
+  // Recovery
+  restoredAt      DateTime?
+  restoredById    String?
+  
+  createdAt       DateTime  @default(now())
+  
+  @@index([entityType])
+  @@index([entityId])
+  @@map("deleted_records")
+}
+
+// ==========================================
+// NOTIFICATIONS
+// ==========================================
+
+model Notification {
+  id              String           @id @default(uuid())
+  title           String
+  message         String
+  type            NotificationType @default(INFO)
+  
+  // Target
+  userId          String
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Link to resource
+  entityType      String?
+  entityId        String?
+  
+  // Status
+  isRead          Boolean          @default(false)
+  readAt          DateTime?
+  
+  createdAt       DateTime         @default(now())
+  
+  @@index([userId])
+  @@index([isRead])
+  @@map("notifications")
+}
+
+// ==========================================
+// SYSTEM CONFIGURATION
+// ==========================================
+
+model SystemConfig {
+  id              String    @id @default(uuid())
+  key             String    @unique
+  value           String
+  description     String?
+  category        String    @default("GENERAL")
+  isEncrypted     Boolean   @default(false)
+  updatedAt       DateTime  @updatedAt
+  
+  @@map("system_config")
+}
+
