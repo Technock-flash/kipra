@@ -56,10 +56,9 @@ export const initializeSocketHandlers = (io: Server): void => {
       socket.to('global_updates').emit('attendance_updated', data);
     });
 
-    // Handle financial updates
+    // Handle financial updates — global room so dashboard stats refetch for all staff (API still enforces RBAC)
     socket.on('financial_update', (data) => {
-      // Only broadcast to users with finance permissions
-      socket.to('role:TREASURER').to('role:ADMIN').to('role:SUPER_ADMIN').emit('financial_updated', data);
+      socket.to('global_updates').emit('financial_updated', data);
     });
 
     // Handle new events

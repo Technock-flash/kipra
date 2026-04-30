@@ -33,6 +33,7 @@
     "node-cron": "^3.0.3",
     "nodemailer": "^6.9.7",
     "qrcode": "^1.5.3",
+    "rrule": "^2.8.1",
     "socket.io": "^4.7.4",
     "speakeasy": "^2.0.0",
     "uuid": "^9.0.1",
@@ -77,4 +78,3 @@
   },
   "license": "MIT"
 }
-

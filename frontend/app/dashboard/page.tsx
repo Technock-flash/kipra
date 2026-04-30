@@ -8,48 +8,15 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import {
-  Users,
-  DollarSign,
-  CalendarDays,
-  TrendingUp,
-  TrendingDown,
-  UserCheck,
-} from 'lucide-react';
+import { DashboardAttendanceOverview } from '@/components/dashboard-attendance-overview';
+import { DashboardRecentActivity } from '@/components/dashboard-recent-activity';
+import { DashboardStatsCards } from '@/components/dashboard-stats-cards';
+import { DashboardUpcomingEvents } from '@/components/dashboard-upcoming-events';
+import { useDashboardRealtime } from '@/lib/dashboard-realtime';
 
 export default function DashboardPage() {
-  const { user } = useAuth();
-
-  const stats = [
-    {
-      name: 'Total Members',
-      value: '1,248',
-      change: '+12%',
-      trend: 'up',
-      icon: Users,
-    },
-    {
-      name: 'This Week Attendance',
-      value: '856',
-      change: '+5%',
-      trend: 'up',
-      icon: UserCheck,
-    },
-    {
-      name: 'Monthly Offerings',
-      value: '₵45,200',
-      change: '+8%',
-      trend: 'up',
-      icon: DollarSign,
-    },
-    {
-      name: 'Upcoming Events',
-      value: '6',
-      change: '2 this week',
-      trend: 'neutral',
-      icon: CalendarDays,
-    },
-  ];
+  const { user, hasPermission } = useAuth();
+  useDashboardRealtime(hasPermission('dashboard:read'));
 
   return (
     <div className="space-y-6">
@@ -62,72 +29,28 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => (
-          <Card key={stat.name}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{stat.name}</CardTitle>
-              <stat.icon className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stat.value}</div>
-              <div className="flex items-center text-xs text-muted-foreground">
-                {stat.trend === 'up' && (
-                  <TrendingUp className="mr-1 h-3 w-3 text-green-500" />
-                )}
-                {stat.trend === 'down' && (
-                  <TrendingDown className="mr-1 h-3 w-3 text-red-500" />
-                )}
-                <span
-                  className={
-                    stat.trend === 'up'
-                      ? 'text-green-500'
-                      : stat.trend === 'down'
-                      ? 'text-red-500'
-                      : ''
-                  }
-                >
-                  {stat.change}
-                </span>
-                <span className="ml-1">from last month</span>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <DashboardStatsCards />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
         <Card className="col-span-4">
-          <CardHeader>
+          <CardHeader className="pb-2">
             <CardTitle>Attendance Overview</CardTitle>
             <CardDescription>
-              Weekly attendance trends across all services
+              Last 7 days — total headcount by day, stacked by demographic (all services)
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="h-[300px] flex items-center justify-center border-2 border-dashed rounded-md">
-              <p className="text-muted-foreground">Attendance Chart Placeholder</p>
-            </div>
+          <CardContent className="pt-0">
+            <DashboardAttendanceOverview />
           </CardContent>
         </Card>
 
         <Card className="col-span-3">
-          <CardHeader>
+          <CardHeader className="pb-2">
             <CardTitle>Recent Activity</CardTitle>
             <CardDescription>Latest actions across the system</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="flex items-center gap-4">
-                  <div className="h-2 w-2 rounded-full bg-primary" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">New member registered</p>
-                    <p className="text-xs text-muted-foreground">2 hours ago</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+          <CardContent className="pt-0">
+            <DashboardRecentActivity />
           </CardContent>
         </Card>
       </div>
@@ -163,31 +86,12 @@ export default function DashboardPage() {
         </Card>
 
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-2">
             <CardTitle>Upcoming Events</CardTitle>
             <CardDescription>Next 7 days</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center">
-                  <CalendarDays className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium">Sunday Service</p>
-                  <p className="text-xs text-muted-foreground">Sun, 8:00 AM</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center">
-                  <CalendarDays className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium">Midweek Service</p>
-                  <p className="text-xs text-muted-foreground">Wed, 6:30 PM</p>
-                </div>
-              </div>
-            </div>
+          <CardContent className="pt-0">
+            <DashboardUpcomingEvents />
           </CardContent>
         </Card>
 

@@ -10,6 +10,9 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2 } from 'lucide-react';
+import type { User } from '@/context/auth-context';
+
+const homePathForUser = (user: User) => (user.role === 'MEMBER' ? '/portal' : '/dashboard');
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -33,6 +36,8 @@ export default function LoginPage() {
       if (result.requiresTwoFactor) {
         setRequiresTwoFactor(true);
         setUserId(result.userId || '');
+      } else if (result.user) {
+        router.push(homePathForUser(result.user));
       } else {
         router.push('/dashboard');
       }
@@ -49,8 +54,8 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      await verify2FA(email, twoFactorCode, userId);
-      router.push('/dashboard');
+      const userAfter2fa = await verify2FA(email, twoFactorCode, userId);
+      router.push(userAfter2fa ? homePathForUser(userAfter2fa) : '/dashboard');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Invalid 2FA code');
     } finally {
@@ -84,7 +89,7 @@ export default function LoginPage() {
             <CardDescription>
               {requiresTwoFactor 
                 ? 'Enter the 6-digit code from your authenticator app'
-                : 'Sign in to your church management account'}
+                : 'Sign in to your account'}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -158,7 +163,7 @@ export default function LoginPage() {
           </CardContent>
           <CardFooter className="flex justify-center">
             <p className="text-sm text-muted-foreground">
-              Church Leadership Only
+              Church members and leadership
             </p>
           </CardFooter>
         </Card>

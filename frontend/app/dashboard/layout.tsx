@@ -16,6 +16,7 @@ import {
   Church,
   Shield,
   ClipboardList,
+  Image,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -29,6 +30,7 @@ const navigation = [
   { name: 'Attendance', href: '/dashboard/attendance', icon: ClipboardList, roles: ['SUPER_ADMIN', 'ADMIN', 'TREASURER', 'SECRETARY', 'APOSTLE', 'LEADER'] },
   { name: 'Finance', href: '/dashboard/finance', icon: DollarSign, roles: ['SUPER_ADMIN', 'ADMIN', 'TREASURER', 'SECRETARY', 'APOSTLE', 'LEADER'] },
   { name: 'Calendar', href: '/dashboard/calendar', icon: CalendarDays, roles: ['SUPER_ADMIN', 'ADMIN', 'TREASURER', 'SECRETARY', 'APOSTLE', 'LEADER'] },
+  { name: 'Gallery', href: '/dashboard/gallery', icon: Image, roles: ['SUPER_ADMIN', 'ADMIN', 'TREASURER', 'SECRETARY', 'APOSTLE', 'LEADER'] },
   { name: 'Leadership', href: '/dashboard/leadership', icon: UserCog, roles: ['SUPER_ADMIN', 'ADMIN', 'APOSTLE'] },
   { name: 'Admin', href: '/dashboard/admin', icon: Shield, roles: ['SUPER_ADMIN', 'ADMIN'] },
   { name: 'Settings', href: '/dashboard/settings', icon: Settings, roles: ['SUPER_ADMIN', 'ADMIN', 'TREASURER', 'SECRETARY', 'APOSTLE', 'LEADER'] },
@@ -50,6 +52,12 @@ export default function DashboardLayout({
     }
   }, [user, isLoading, router]);
 
+  useEffect(() => {
+    if (!isLoading && user?.role === 'MEMBER') {
+      router.replace('/portal');
+    }
+  }, [user, isLoading, router]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -59,6 +67,7 @@ export default function DashboardLayout({
   }
 
   if (!user) return null;
+  if (user.role === 'MEMBER') return null;
 
   const filteredNavigation = navigation.filter((item) =>
     item.roles.includes(user.role)

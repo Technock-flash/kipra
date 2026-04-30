@@ -27,11 +27,15 @@ export enum Permission {
   FINANCE_DELETE = 'finance:delete',
   FINANCE_RESTORE = 'finance:restore',
 
-  // Calendar
+// Calendar
   CALENDAR_CREATE = 'calendar:create',
   CALENDAR_READ = 'calendar:read',
   CALENDAR_UPDATE = 'calendar:update',
   CALENDAR_DELETE = 'calendar:delete',
+  CALENDAR_EXPORT = 'calendar:export',
+  CALENDAR_SYNC = 'calendar:sync',
+  CALENDAR_RECURRING_MANAGE = 'calendar:recurring:manage',
+  CALENDAR_YEARLY_GENERATE = 'calendar:yearly:generate',
 
   // Leadership
   LEADERSHIP_CREATE = 'leadership:create',
@@ -49,6 +53,19 @@ export enum Permission {
   // Notifications
   NOTIFICATION_READ = 'notification:read',
   NOTIFICATION_BROADCAST = 'notification:broadcast',
+
+  // Member Portal
+  PORTAL_READ = 'portal:read',
+  PORTAL_UPDATE = 'portal:update',
+  PORTAL_ATTENDANCE_READ = 'portal:attendance:read',
+  PORTAL_FINANCE_READ = 'portal:finance:read',
+  PORTAL_EVENT_REGISTER = 'portal:event:register',
+  PORTAL_PRAYER_CREATE = 'portal:prayer:create',
+  PORTAL_MINISTRY_REQUEST = 'portal:ministry:request',
+
+  // Church gallery
+  GALLERY_READ = 'gallery:read',
+  GALLERY_MANAGE = 'gallery:manage',
 }
 
 export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
@@ -75,6 +92,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.CALENDAR_READ,
     Permission.CALENDAR_UPDATE,
     Permission.CALENDAR_DELETE,
+    Permission.CALENDAR_EXPORT,
+    Permission.CALENDAR_SYNC,
+    Permission.CALENDAR_RECURRING_MANAGE,
+    Permission.CALENDAR_YEARLY_GENERATE,
     Permission.LEADERSHIP_CREATE,
     Permission.LEADERSHIP_READ,
     Permission.LEADERSHIP_UPDATE,
@@ -84,6 +105,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.SETTINGS_MANAGE,
     Permission.NOTIFICATION_READ,
     Permission.NOTIFICATION_BROADCAST,
+    Permission.GALLERY_READ,
+    Permission.GALLERY_MANAGE,
   ],
 
   [UserRole.TREASURER]: [
@@ -96,6 +119,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.CALENDAR_READ,
     Permission.DASHBOARD_READ,
     Permission.NOTIFICATION_READ,
+    Permission.GALLERY_READ,
   ],
 
   [UserRole.SECRETARY]: [
@@ -112,8 +136,12 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.CALENDAR_READ,
     Permission.CALENDAR_UPDATE,
     Permission.CALENDAR_DELETE,
+    Permission.CALENDAR_EXPORT,
+    Permission.CALENDAR_RECURRING_MANAGE,
+    Permission.CALENDAR_YEARLY_GENERATE,
     Permission.DASHBOARD_READ,
     Permission.NOTIFICATION_READ,
+    Permission.GALLERY_READ,
   ],
 
   [UserRole.APOSTLE]: [
@@ -128,6 +156,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.DASHBOARD_READ,
     Permission.NOTIFICATION_READ,
     Permission.NOTIFICATION_BROADCAST,
+    Permission.GALLERY_READ,
   ],
 
   [UserRole.LEADER]: [
@@ -138,6 +167,19 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.LEADERSHIP_READ,
     Permission.DASHBOARD_READ,
     Permission.NOTIFICATION_READ,
+    Permission.GALLERY_READ,
+  ],
+
+  [UserRole.MEMBER]: [
+    Permission.PORTAL_READ,
+    Permission.PORTAL_UPDATE,
+    Permission.PORTAL_ATTENDANCE_READ,
+    Permission.PORTAL_FINANCE_READ,
+    Permission.PORTAL_EVENT_REGISTER,
+    Permission.PORTAL_PRAYER_CREATE,
+    Permission.PORTAL_MINISTRY_REQUEST,
+    Permission.NOTIFICATION_READ,
+    Permission.GALLERY_READ,
   ],
 };
 

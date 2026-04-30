@@ -18,6 +18,7 @@ enum UserRole {
   SECRETARY
   APOSTLE
   LEADER
+  MEMBER
 }
 
 enum UserStatus {
@@ -55,6 +56,12 @@ enum EventType {
   TRAINING
   SOCIAL
   OUTREACH
+  YOUTH_PROGRAM
+  DEPARTMENTAL
+  LEADERSHIP_MEETING
+  FASTING_PROGRAM
+  HOLIDAY
+  SPECIAL_OCCASION
   OTHER
 }
 
@@ -64,6 +71,39 @@ enum EventStatus {
   COMPLETED
   CANCELLED
   POSTPONED
+}
+
+enum EventPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum RecurrenceFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+enum ReminderType {
+  EMAIL
+  SMS
+  PUSH
+  BOTH
+}
+
+enum CalendarSyncProvider {
+  GOOGLE
+  OUTLOOK
+}
+
+enum CalendarExportFormat {
+  PDF
+  EXCEL
+  ICS
+  CSV
 }
 
 enum FinancialType {
@@ -109,6 +149,9 @@ enum AuditAction {
   EXPORT
   APPROVE
   REJECT
+  REGISTER_EVENT
+  SUBMIT_PRAYER
+  REQUEST_MINISTRY
 }
 
 // ==========================================
@@ -136,6 +179,10 @@ model User {
   loginAttempts Int     @default(0)
   lockedUntil   DateTime?
   
+  // Member Portal Link
+  linkedMemberId String?   @unique
+  linkedMember Member?  @relation("UserLinkedMember", fields: [linkedMemberId], references: [id])
+  
   // Relations
   auditLogs     AuditLog[]
   createdMembers Member[]   @relation("CreatedBy")
@@ -146,8 +193,13 @@ model User {
   expenses      Expense[]  @relation("ExpenseRecordedBy")
   attendances   Attendance[] @relation("AttendanceRecordedBy")
   events        Event[]    @relation("EventCreatedBy")
+  organizedEvents Event[]  @relation("EventOrganizer")
+  eventSeriesCreated EventSeries[] @relation("EventSeriesCreatedBy")
   notifications Notification[]
-  
+  prayerRequests      PrayerRequest[] @relation("PrayerRequestRespondedBy")
+  ministryRequests   MinistryRequest[] @relation("MinistryRequestReviewedBy")
+  galleryImagesUploaded GalleryImage[]
+
   // Audit
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
@@ -194,6 +246,10 @@ model Member {
   tithes          Tithe[]
   pledges         Pledge[]
   individualAttendances IndividualAttendance[]
+  linkedUser      User?        @relation("UserLinkedMember")
+  prayerRequests  PrayerRequest[]
+  ministryRequests MinistryRequest[]
+  eventRegistrations EventRegistration[]
   
   // Audit
   createdById     String?
@@ -425,26 +481,54 @@ model Event {
   description     String?
   type            EventType   @default(SERVICE)
   status          EventStatus @default(SCHEDULED)
+  priority        EventPriority @default(MEDIUM)
   
   // Timing
   startDate       DateTime
   endDate         DateTime?
   startTime       String?     // HH:MM format
   endTime         String?
+  allDay          Boolean     @default(false)
   recurring       Boolean     @default(false)
   recurrenceRule  String?     // iCal RRULE format
   
   // Location
   location        String?
+  venue           String?
   isVirtual       Boolean     @default(false)
   virtualLink     String?
   
   // Organization
   departmentId    String?
   department      Department? @relation(fields: [departmentId], references: [id])
+  branchId        String?
+  branch         Branch?     @relation(fields: [branchId], references: [id])
+  leadershipGroup String?     // Apostolic Council, Executive, etc.
+  organizerId     String?
+  organizer      User?       @relation("EventOrganizer", fields: [organizerId], references: [id])
+  
+  // Registration & Attendance
+  registrationRequired Boolean @default(false)
+  maxAttendees     Int?
+  expectedAttendees Int?
+  
+  // External Sync
+  syncExternalId   String?     // Google/Outlook event ID
+  lastSyncedAt    DateTime?
+  
+  // Series (for recurring events)
+  seriesId       String?
+  series        EventSeries?  @relation("EventSeriesGroup", fields: [seriesId], references: [id])
+  
+  // Color for calendar display
+  color          String?
+  
+  // Reminders
+  reminders      EventReminder[]
   
   // Relations
   attendance      Attendance[]
+  registrations   EventRegistration[]
   
   // Audit
   createdById     String
@@ -454,6 +538,130 @@ model Event {
   deletedAt       DateTime?
   
   @@map("events")
+}
+
+// ==========================================
+// ADVANCED CALENDAR MODELS
+// ==========================================
+
+model EventSeries {
+  id              String       @id @default(uuid())
+  name            String       // e.g., "Sunday Morning Service 2024"
+  frequency       RecurrenceFrequency
+  
+  // Base template for recurring events
+  title           String
+  description     String?
+  type            EventType   @default(SERVICE)
+  startTime       String?
+  endTime         String?
+  location       String?
+  venue          String?
+  isVirtual      Boolean     @default(false)
+  virtualLink    String?
+  
+  // Organization
+  departmentId   String?
+  department    Department? @relation(fields: [departmentId], references: [id])
+  organizerId   String?
+  
+  // Recurrence pattern
+  recurrenceRule String      // iCal RRULE format
+  startDate     DateTime
+  endDate      DateTime?
+  count        Int?        // Number of occurrences (mutually exclusive with endDate)
+  interval     Int         @default(1)
+  byDay        String?     // MO,TU,WE,TH,FR,SA,SU
+  byMonthDay   Int?        // 1-31
+  byMonth      Int?        // 1-12
+  until        DateTime?
+  
+  // Status
+  isActive     Boolean     @default(true)
+
+  registrationRequired Boolean @default(false)
+  maxAttendees     Int?
+  color          String?
+  
+  // Generated events
+  events        Event[]     @relation("EventSeriesGroup")
+  
+  // Audit
+  createdById    String
+  createdBy     User        @relation("EventSeriesCreatedBy", fields: [createdById], references: [id])
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  deletedAt    DateTime?
+  
+  @@map("event_series")
+}
+
+model EventReminder {
+  id              String       @id @default(uuid())
+  eventId          String
+  event           Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  
+  // Reminder settings
+  type            ReminderType @default(BOTH)
+  minutesBefore   Int        @default(30)  // Minutes before event
+  isSent          Boolean    @default(false)
+  sentAt          DateTime?
+  
+  // Notification target
+  userId          String?    // Specific user or null for all attendees
+  email           String?
+  
+  createdAt       DateTime  @default(now())
+  
+  @@map("event_reminders")
+}
+
+model CalendarSyncAccount {
+  id              String      @id @default(uuid())
+  userId          String
+  provider       CalendarSyncProvider
+  
+  // OAuth tokens
+  accessToken    String
+  refreshToken  String?
+  tokenExpiry  DateTime
+  
+  // Sync state
+  lastSyncedAt   DateTime?
+  syncEnabled   Boolean   @default(true)
+  
+  // External calendar ID
+  externalCalendarId String?
+  
+  createdAt     DateTime   @default(now())
+  updatedAt    DateTime  @updatedAt
+  
+  @@unique([userId, provider])
+  @@map("calendar_sync_accounts")
+}
+
+model CalendarExport {
+  id              String            @id @default(uuid())
+  userId          String
+  
+  // Export settings
+  format         CalendarExportFormat
+  startDate      DateTime
+  endDate        DateTime
+  
+  // Filters applied
+  filters        Json?      // { departmentId, branchId, type, leadershipGroup }
+  
+  // File info
+  fileName       String?
+  fileUrl       String?
+  fileSize      Int?
+  
+  status        String     @default("PENDING")
+  
+  createdAt     DateTime  @default(now())
+  
+  @@map("calendar_exports")
 }
 
 // ==========================================
@@ -471,6 +679,8 @@ model Department {
   leaders         Leader[]
   attendances     Attendance[]
   events          Event[]
+  eventSeries     EventSeries[]
+  ministryRequests MinistryRequest[]
   
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
@@ -524,6 +734,8 @@ model Branch {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   deletedAt       DateTime?
+
+  events          Event[]
   
   @@map("branches")
 }
@@ -628,5 +840,104 @@ model SystemConfig {
   updatedAt       DateTime  @updatedAt
   
   @@map("system_config")
+}
+
+// ==========================================
+// MEMBER PORTAL - PRAYER REQUESTS
+// ==========================================
+
+model PrayerRequest {
+  id              String            @id @default(uuid())
+  memberId        String
+  member          Member            @relation(fields: [memberId], references: [id])
+  title           String
+  request         String
+  isPrivate      Boolean           @default(true)
+  status          PrayerRequestStatus @default(PENDING)
+  response        String?
+  respondedById  String?
+  respondedBy    User?             @relation("PrayerRequestRespondedBy", fields: [respondedById], references: [id])
+  isCounseling   Boolean           @default(false)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  
+  @@map("prayer_requests")
+}
+
+enum PrayerRequestStatus {
+  PENDING
+  ANSWERED
+  IN_PROGRESS
+  ARCHIVED
+}
+
+// ==========================================
+// MEMBER PORTAL - MINISTRY REQUESTS
+// ==========================================
+
+model MinistryRequest {
+  id              String        @id @default(uuid())
+  memberId        String
+  member          Member        @relation(fields: [memberId], references: [id])
+  departmentId    String
+  department     Department    @relation(fields: [departmentId], references: [id])
+  status         RequestStatus @default(PENDING)
+  motivation     String?
+  notes          String?
+  reviewedById  String?
+  reviewedBy     User?         @relation("MinistryRequestReviewedBy", fields: [reviewedById], references: [id])
+  reviewedAt     DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  
+  @@map("ministry_requests")
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CONFIRMED
+  CANCELLED
+}
+
+// ==========================================
+// MEMBER PORTAL - EVENT REGISTRATIONS
+// ==========================================
+
+model EventRegistration {
+  id              String        @id @default(uuid())
+  memberId        String
+  member          Member        @relation(fields: [memberId], references: [id])
+  eventId         String
+  event           Event        @relation(fields: [eventId], references: [id])
+  status          RequestStatus @default(CONFIRMED)
+  confirmedAt     DateTime     @default(now())
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  
+  @@unique([memberId, eventId])
+  @@map("event_registrations")
+}
+
+// ==========================================
+// CHURCH GALLERY (admin-managed photos)
+// ==========================================
+
+model GalleryImage {
+  id             String   @id @default(uuid())
+  fileName       String
+  originalName   String
+  mimeType       String
+  sizeBytes      Int
+  caption        String?
+  sortOrder      Int      @default(0)
+  uploadedById String
+  uploadedBy     User     @relation(fields: [uploadedById], references: [id])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([sortOrder])
+  @@map("gallery_images")
 }
 

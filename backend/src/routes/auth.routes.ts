@@ -3,7 +3,7 @@ import { authenticate } from '@middleware/auth';
 import { validateBody } from '@middleware/validateRequest';
 import {
   loginSchema,
-  registerSchema,
+  registerPublicSchema,
   refreshTokenSchema,
   changePasswordSchema,
   setupTwoFactorSchema,
@@ -13,7 +13,7 @@ import * as authController from '@controllers/auth.controller';
 
 const router = Router();
 
-router.post('/register', validateBody(registerSchema), authController.register);
+router.post('/register', validateBody(registerPublicSchema), authController.register);
 router.post('/login', validateBody(loginSchema), authController.login);
 router.post('/2fa/verify', validateBody(twoFactorSchema), authController.verify2FA);
 router.post('/refresh', validateBody(refreshTokenSchema), authController.refreshToken);

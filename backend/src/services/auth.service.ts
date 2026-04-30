@@ -45,6 +45,10 @@ export const registerUser = async (data: {
   phone?: string;
   role?: UserRole;
 }) => {
+  if (data.role === UserRole.MEMBER) {
+    throw new AppError('Member portal accounts must be created by an administrator', 403);
+  }
+
   const existingUser = await prisma.user.findUnique({
     where: { email: data.email },
   });
@@ -152,6 +156,7 @@ export const loginUser = async (email: string, password: string, ipAddress?: str
       role: user.role,
       status: user.status,
       twoFactorEnabled: user.twoFactorEnabled,
+      linkedMemberId: user.linkedMemberId,
     },
     tokens,
   };
@@ -199,6 +204,7 @@ export const verifyTwoFactor = async (userId: string, token: string) => {
       role: user.role,
       status: user.status,
       twoFactorEnabled: user.twoFactorEnabled,
+      linkedMemberId: user.linkedMemberId,
     },
     tokens,
   };

@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/context/auth-context';
+import { generateFinanceReport } from '@/lib/generateFinanceReport';
+import { Download } from 'lucide-react';
 
 interface FinancialSummary {
   totalIncome: number | string;
@@ -157,11 +159,25 @@ export default function FinancePage() {
     [summary]
   );
 
+  const handleDownloadReport = async () => {
+    try {
+      await generateFinanceReport(summary, offerings, expenses);
+    } catch (err) {
+      console.error('Failed to generate report:', err);
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Finance</h1>
-        <p className="text-muted-foreground">Track giving, expenses, and financial health.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Finance</h1>
+          <p className="text-muted-foreground">Track giving, expenses, and financial health.</p>
+        </div>
+        <Button variant="outline" onClick={handleDownloadReport} disabled={isLoading || !summary}>
+          <Download className="mr-2 h-4 w-4" />
+          Download Report
+        </Button>
       </div>
 
       {isLoading && <p className="text-sm text-muted-foreground">Loading finance data...</p>}

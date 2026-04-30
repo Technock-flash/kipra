@@ -1,257 +1,210 @@
-# Kingdom Power Royal Assembly (KiPRA) - Church Management System
-## Comprehensive Implementation Plan
+# Member Portal Implementation Plan
 
----
+## Phase 1: Database Schema Updates
 
-## 1. Information Gathered
+### New Models to Add to schema.prisma:
 
-- **Workspace**: Empty directory - greenfield project
-- **Target**: Full-stack web application for church leadership
-- **Users**: Super Admin, Admin, Treasurer, Secretary, Apostle, Other Leaders
-- **Modules**: Auth, Dashboard, Attendance, Finance, Calendar, Leadership Management
-- **Requirements**: RBAC, Real-time, Soft deletes, Audit logs, Mobile responsive
+```prisma
+// Prayer Requests
+model PrayerRequest {
+  id              String   @id @default(uuid())
+  memberId        String
+  member          Member  @relation(fields: [memberId], references: [id])
+  title           String
+  request         String
+  isPrivate       Boolean  @default(true)
+  status          PrayerRequestStatus @default(PENDING)
+  response        String?
+  respondedById   String?
+  respondedBy     User?   @relation("PrayerRequestRespondedBy", fields: [respondedById], references: [id])
+  isCounseling    Boolean @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@map("prayer_requests")
+}
 
----
+enum PrayerRequestStatus {
+  PENDING
+  ANSWERED
+  IN_PROGRESS
+  ARCHIVED
+}
 
-## 2. System Architecture
+// Ministry/Department Requests
+model MinistryRequest {
+  id              String   @id @default(uuid())
+  memberId        String
+  member          Member   @relation(fields: [memberId], references: [id])
+  departmentId    String
+  department      Department @relation(fields: [departmentId], references: [id])
+  status          RequestStatus @default(PENDING)
+  motivation      String?
+  notes           String?
+  reviewedById    String?
+  reviewedBy      User?    @relation("MinistryRequestReviewedBy", fields: [reviewedById], references: [id])
+  reviewedAt      DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@map("ministry_requests")
+}
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        CLIENT LAYER                              │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐  │
-│  │  Next.js     │  │  React Query │  │  Socket.io Client    │  │
-│  │  (App Router)│  │  (State/Cache)│  │  (Real-time)        │  │
-│  └──────────────┘  └──────────────┘  └──────────────────────┘  │
-├─────────────────────────────────────────────────────────────────┤
-│                        API GATEWAY                               │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐  │
-│  │  Express.js  │  │  JWT Auth    │  │  RBAC Middleware     │  │
-│  │  REST API    │  │  + 2FA OTP   │  │  (Permission Matrix) │  │
-│  └──────────────┘  └──────────────┘  └──────────────────────┘  │
-├─────────────────────────────────────────────────────────────────┤
-│                        SERVICE LAYER                             │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐  │
-│  │  Audit Log   │  │  Soft Delete │  │  Real-time Events    │  │
-│  │  Service     │  │  Service     │  │  Service             │  │
-│  └──────────────┘  └──────────────┘  └──────────────────────┘  │
-├─────────────────────────────────────────────────────────────────┤
-│                        DATA LAYER                                │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐  │
-│  │  PostgreSQL  │  │  Prisma ORM  │  │  Redis (Sessions/    │  │
-│  │  (Primary)   │  │  (Migrations)│  │  Cache/Real-time)    │  │
-│  └──────────────┘  └──────────────┘  └──────────────────────┘  │
-└─────────────────────────────────────────────────────────────────┘
-```
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
 
----
-
-## 3. File Structure Plan
-
-```
-kpra-system/
-├── docs/
-│   ├── ARCHITECTURE.md
-│   ├── DATABASE_SCHEMA.md
-│   ├── PERMISSION_MATRIX.md
-│   ├── API_ENDPOINTS.md
-│   ├── SECURITY_MODEL.md
-│   └── ROADMAP.md
-├── backend/
-│   ├── src/
-│   │   ├── config/
-│   │   ├── controllers/
-│   │   ├── middleware/
-│   │   ├── models/
-│   │   ├── routes/
-│   │   ├── services/
-│   │   ├── utils/
-│   │   ├── validators/
-│   │   └── sockets/
-│   ├── prisma/
-│   │   └── schema.prisma
-│   ├── tests/
-│   ├── .env.example
-│   ├── package.json
-│   └── server.js
-├── frontend/
-│   ├── app/
-│   │   ├── (auth)/
-│   │   ├── (dashboard)/
-│   │   ├── api/
-│   │   └── layout.tsx
-│   ├── components/
-│   │   ├── ui/
-│   │   ├── dashboard/
-│   │   ├── finance/
-│   │   ├── attendance/
-│   │   ├── calendar/
-│   │   ├── leadership/
-│   │   └── admin/
-│   ├── hooks/
-│   ├── lib/
-│   ├── types/
-│   ├── context/
-│   ├── package.json
-│   └── next.config.js
-├── docker-compose.yml
-├── README.md
-└── TODO.md
+// Event Registrations
+model EventRegistration {
+  id              String   @id @default(uuid())
+  memberId        String
+  member          Member   @relation(fields: [memberId], references: [id])
+  eventId         String
+  event           Event    @relation(fields: [eventId], references: [id])
+  status          RequestStatus @default(CONFIRMED)
+  confirmedAt     DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  @@map("event_registrations")
+}
 ```
 
----
+## Phase 2: Backend API
 
-## 4. Technology Stack
+### New Validators:
+1. `portal.validator.ts` - For all member portal operations
 
-| Layer | Technology |
-|-------|------------|
-| Frontend | Next.js 14 (App Router), TypeScript, Tailwind CSS, shadcn/ui, Recharts |
-| Backend | Node.js, Express.js, TypeScript |
-| Database | PostgreSQL 15 |
-| ORM | Prisma |
-| Real-time | Socket.io |
-| Auth | JWT (access + refresh tokens), bcrypt, speakeasy (2FA) |
-| Cache/Session | Redis |
-| Validation | Zod |
-| Testing | Jest, Supertest |
-| Containerization | Docker, Docker Compose |
+### New Controllers:
+1. `portal.controller.ts` - Main member portal operations:
+   - `getMyProfile` - Get logged-in member's profile
+   - `updateMyProfile` - Update own profile details
+   - `getMyAttendance` - Get attendance history with filters
+   - `getMyGiving` - Get personal giving history
+   - `generateGivingStatement` - Generate PDF giving statement
+   - `getUpcomingEvents` - Get events available for registration
+   - `registerForEvent` - Register for event
+   - `cancelEventRegistration` - Cancel registration
+   - `submitPrayerRequest` - Submit prayer request
+   - `getMyPrayerRequests` - Get own prayer requests
+   - `requestMinistry` - Request to join ministry
+   - `getMyMinistryRequests` - Get ministry requests
 
----
+### New Routes:
+1. `portal.routes.ts` - Mount at `/api/portal`
 
-## 5. Database Schema (ERD Summary)
+### Permissions to Add:
+- portal:read
+- portal:update
+- portal:attendance:read
+- portal:finance:read
+- portal:event:register
+- portal:prayer:create
+- portal:ministry:request
 
-**Core Tables:**
-- `users` - All system users with role enum
-- `roles` - Role definitions
-- `permissions` - Permission definitions
-- `role_permissions` - Many-to-many mapping
-- `audit_logs` - Activity tracking
-- `deleted_records` - Soft delete recovery vault
+### Server Registration:
+- Add to server.ts: `import portalRoutes from '@routes/portal.routes';`
+- Add middleware: `app.use(\`${apiPrefix}/portal\`, authenticate, portalRoutes);`
 
-**Church Module Tables:**
-- `members` - Church member profiles
-- `attendance` - Service/department attendance
-- `visitors` - Visitor tracking
-- `events` - Church calendar events
-- `offerings` - Offering records
-- `tithes` - Tithe records
-- `pledges` - Pledge records
-- `expenses` - Expense tracking
-- `departments` - Church departments
-- `leaders` - Leadership assignments
-- `branches` - Multi-branch support
+## Phase 3: Frontend
 
----
+### New Pages:
+1. `/portal/page.tsx` - Member portal dashboard
+2. `/portal/profile/page.tsx` - Profile management
+3. `/portal/attendance/page.tsx` - Attendance history
+4. `/portal/giving/page.tsx` - Giving statements
+5. `/portal/events/page.tsx` - Events & registration
+6. `/portal/prayer/page.tsx` - Prayer requests
+7. `/portal/ministry/page.tsx` - Ministry requests
 
-## 6. User Role Permission Matrix
+### Components:
+1. `portal-nav.tsx` - Portal navigation sidebar
+2. `attendance-chart.tsx` - Attendance visualization
+3. `giving-statement.tsx` - PDF generation
+4. `event-card.tsx` - Event display
+5. `prayer-form.tsx` - Prayer request form
 
-| Permission | Super Admin | Admin | Treasurer | Secretary | Apostle | Leader |
-|------------|:-----------:|:-----:|:---------:|:---------:|:-------:|:------:|
-| **Users** |
-| Create User | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Edit User | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Delete User | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Manage Permissions | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **Members** |
-| Create Member | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ |
-| Edit Member | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ |
-| Delete Member | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ |
-| View Members | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Attendance** |
-| Record Attendance | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ |
-| Edit Attendance | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ |
-| View Reports | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Finance** |
-| Record Offering | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Record Tithe | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Record Pledge | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Edit Financial | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Soft Delete Financial | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Restore Financial | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| View Reports | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Calendar** |
-| Create Event | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ |
-| Edit Event | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ |
-| Delete Event | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ |
-| View Calendar | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Leadership** |
-| Manage Leaders | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ |
-| Manage Depts | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ |
-| **System** |
-| View Audit Logs | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| View Deleted Records | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Restore Any Record | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| Dashboard Analytics | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+### Auth Context Updates:
+- Add MEMBER role and permissions
+- Store linked member ID with user
 
----
+### Layout Updates:
+- Add "Member Portal" link in sidebar
+- Create separate layout for portal (redirects to /portal)
 
-## 7. Implementation Roadmap
+## Phase 4: Security & Integration
 
-### Phase 1: Foundation (Day 1)
-1. Docker Compose setup (PostgreSQL + Redis)
-2. Backend project scaffolding (Express + TypeScript)
-3. Prisma schema design and migration
-4. Frontend Next.js project setup with Tailwind
+### Security:
+- All portal routes require authentication
+- Members can only access their own data
+- Audit logging on all profile updates
+- Rate limiting on prayer requests
 
-### Phase 2: Authentication & RBAC (Day 2)
-1. User authentication (JWT + refresh tokens)
-2. 2FA implementation with speakeasy
-3. Role-based access control middleware
-4. Permission matrix enforcement
-5. Login/logout flows on frontend
+### Notifications:
+- Event registration confirmation
+- Ministry request status update
+- Prayer request response
 
-### Phase 3: Core Modules (Days 3-4)
-1. Member management CRUD
-2. Attendance tracking system
-3. Finance module (Offerings, Tithes, Pledges, Expenses)
-4. Church calendar/events
-5. Leadership management
+### Integration:
+- Use existing auth system
+- Use existing database
+- Reuse notification system
 
-### Phase 4: Data Integrity & Audit (Day 5)
-1. Soft delete implementation across all modules
-2. Deleted records recovery vault
-3. Comprehensive audit logging
-4. Financial transaction edit trail
+## Implementation Order
 
-### Phase 5: Real-time & Dashboard (Day 6)
-1. Socket.io integration
-2. Real-time dashboard analytics
-3. Live attendance counters
-4. Activity feeds
-5. Notifications system
+1. Update database schema
+2. Create validators
+3. Create controller functions
+4. Define routes
+5. Register in server
+6. Add frontend components
+7. Add frontend pages
+8. Update auth context
+9. Test integration
 
-### Phase 6: UI/UX Polish (Day 7)
-1. Responsive design
-2. Charts and reports with export
-3. Dark mode support
-4. Role-based navigation
-5. Data tables with sorting/filtering
+## File Structure to Create/Modify
 
----
+### New Backend Files:
+- `backend/src/validators/portal.validator.ts`
+- `backend/src/controllers/portal.controller.ts`
+- `backend/src/routes/portal.routes.ts`
+- `backend/src/utils/pdf-generator.ts` - For giving statements
 
-## 8. Security Model
+### Modified Backend Files:
+- `backend/prisma/schema.prisma` - Add new models
+- `backend/src/server.ts` - Register routes
+- `backend/src/utils/permissions.ts` - Add new permissions
+- `backend/src/middleware/rbac.ts` - Update if needed
 
-- **Authentication**: JWT access tokens (15min) + refresh tokens (7 days) in httpOnly cookies
-- **Authorization**: RBAC with permission matrix checked at middleware level
-- **Data Protection**: bcrypt password hashing (12 rounds), encrypted financial fields
-- **Audit**: Every Create/Update/Delete logged with user, timestamp, old/new values
-- **Soft Delete**: All records use `deletedAt` timestamp; Super Admin can restore from vault
-- **Input Validation**: Zod schemas for all API inputs
-- **Rate Limiting**: Express-rate-limit on auth endpoints
-- **CORS**: Strict origin policy
-- **Helmet**: Security headers
+### New Frontend Files:
+- `frontend/app/portal/layout.tsx`
+- `frontend/app/portal/page.tsx`
+- `frontend/app/portal/profile/page.tsx`
+- `frontend/app/portal/attendance/page.tsx`
+- `frontend/app/portal/giving/page.tsx`
+- `frontend/app/portal/events/page.tsx`
+- `frontend/app/portal/prayer/page.tsx`
+- `frontend/app/portal/ministry/page.tsx`
+- `frontend/components/portal/` - Shared components
 
----
+### Modified Frontend Files:
+- `frontend/context/auth-context.tsx` - Update permissions
+- `frontend/types/index.ts` - Add types
+- `frontend/lib/api.ts` - Update if needed
 
-## 9. Plan Approval Request
+## Summary
 
-This is a comprehensive plan for building the KiPRA Church Management System. The implementation will proceed in logical phases:
-
-1. **Documentation**: Architecture, schema, permissions, API docs
-2. **Backend API**: Complete REST API with authentication, RBAC, all CRUD modules, audit logs
-3. **Frontend**: Next.js dashboard with role-based views, real-time features, reports
-4. **Infrastructure**: Docker setup for easy deployment
-
-**Estimated deliverables**: 40-50 files across backend, frontend, and documentation.
-
-Please confirm this plan so I can proceed with implementation and create the TODO.md tracking file.
-
+This plan outlines a complete Member Portal feature that:
+- ✅ Allows members to manage their profile
+- ✅ Shows attendance history with charts
+- ✅ Allows downloading giving statements
+- ✅ Event registration functionality
+- ✅ Prayer request submission
+- ✅ Ministry/Department joining requests
+- ✅ Mobile responsive (reuses existing design system)
+- ✅ Integrated with existing auth
+- ✅ Connected to main database
+- ✅ Has audit logging
+- ✅ Has notifications

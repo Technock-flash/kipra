@@ -23,6 +23,8 @@ import leadershipRoutes from '@routes/leadership.routes';
 import dashboardRoutes from '@routes/dashboard.routes';
 import auditRoutes from '@routes/audit.routes';
 import notificationRoutes from '@routes/notification.routes';
+import portalRoutes from '@routes/portal.routes';
+import galleryRoutes from '@routes/gallery.routes';
 
 // Import socket handler
 import { initializeSocketHandlers } from '@sockets/socket.handler';
@@ -101,6 +103,8 @@ app.use(`${apiPrefix}/leadership`, leadershipRoutes);
 app.use(`${apiPrefix}/dashboard`, dashboardRoutes);
 app.use(`${apiPrefix}/audit`, auditRoutes);
 app.use(`${apiPrefix}/notifications`, notificationRoutes);
+app.use(`${apiPrefix}/portal`, portalRoutes);
+app.use(`${apiPrefix}/gallery`, galleryRoutes);
 
 // Error handling
 app.use(notFoundHandler);
